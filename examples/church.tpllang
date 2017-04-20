@@ -1,0 +1,28 @@
+// Church numerals
+namespace Church {
+
+#type X = val;
+#type F = X -> X;
+#type Church = (F, X) -> X;
+
+// zero = \f x -> x
+Zero = lambda(F f, X x) -> x;
+
+// succ = \n -> \f x -> f (n f x)
+Succ(Church n) {
+  churchValue(F f, X x) = f(n(f, x));
+}
+
+// sum = \m n -> \f x -> m f (n f x)
+Sum(Church m, Church n) {
+  churchValue(F f, X x) = m(f, n(f, x));
+}
+
+// mul = \m n -> \f x -> m (\y -> n f y) x
+Mul(Church m, Church n) {
+  churchValue(F f, X x) = m(L, x) {
+    L(X x) = n(f, x);
+  }
+}
+
+}

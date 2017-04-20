@@ -1,0 +1,157 @@
+impure { #include <iostream> }
+
+namespace binary {
+
+  one; // просто значение
+  zero;
+
+  // Определение функции
+  And(val x, val y); // для произвольных случаев не определена
+  And(val x, one) = x; // для частных - да
+  And(val x, zero) = zero;
+
+  Or(val x, val y);
+  Or(val x, one) = one;
+  Or(val x, zero) = x;
+
+  Not(val x);
+  Not(one) = zero;
+  Not(zero) = one;
+
+  Xor(val x, val y) = Or(And(x, Not(y)), And(Not(x), y));
+
+  DigitSum(val x, val y, val prev) { // функция с полями
+    lo1 = Xor(x, y);
+    hi = Or(And(x, y), And(lo1, prev));
+    lo = Xor(lo1, prev);
+  }
+  
+} // ns binary
+
+namespace list {
+
+  nil;
+
+  cons(val x, val y) {
+    head = x;
+    tail = y;
+  }
+
+  #type T = val;
+  #type unary = T -> T;
+  map(unary f, T list) = cons(f(list.head), map(f, list.tail))';
+  map(unary f, nil) = nil;
+  
+  reverse1(T list1, T reversed) = reverse1(list1.tail, cons(list1.head, reversed)');
+  reverse1(nil, T reversed) = reversed;
+  
+  reverse(T list) = reverse1(list, nil);
+
+}
+
+namespace number {
+
+  using list.cons;
+  using list.nil;
+  using binary.one;
+  using binary.zero;
+  using binary.DigitSum;
+  
+  HeadOrZero(val list) = list.head;
+  HeadOrZero(nil) = zero;
+  TailOrNil(val list) = list.tail;
+  TailOrNil(nil) = nil;
+  
+  Sum1(val x, val y, val prev) = cons(cur.lo, tail)' {
+    cur = DigitSum(HeadOrZero(x), HeadOrZero(y), prev)';
+    tail = Sum1(TailOrNil(x), TailOrNil(y), cur.hi);
+  }
+  Sum1(nil, nil, one) = cons(one, nil)';
+  Sum1(nil, nil, zero) = nil;
+
+  Sum(val x, val y) = Sum1(x, y, zero);
+}
+
+using namespace list;
+using namespace binary;
+using namespace number;
+
+world(val list) = impure {
+  void print() const {
+    impure world(list.head).print();
+    impure world(list.tail).print();
+  }
+  operator int () const {
+    return int(impure world(list.head)) + 2 * int(impure world(list.tail));
+  }
+  operator std::string () const {
+    return std::string(impure world(list.head)) + std::string(impure world(list.tail));
+  }
+}
+
+world(zero) = impure {
+  void print() const {
+    std::cout << operator std::string();
+  }
+  operator int () const {
+    return 0;
+  }
+  operator std::string () const {
+    return "0";
+  }
+}
+
+world(one) = impure {
+  void print() const {
+    std::cout << operator std::string();
+  }
+  operator int () const {
+    return 1;
+  }
+  operator std::string () const {
+    return "1";
+  }
+}
+
+world(nil) = impure {
+  void print() const {
+    std::cout << operator std::string();
+  }
+  operator int () const {
+    return 0;
+  }
+  operator std::string () const {
+    return "";
+  }
+}
+
+value10 = reverse(cons(one, cons(zero, cons(one, cons(zero, nil)')')')');
+value5 = reverse(cons(one, cons(zero, cons(one, nil)')')');
+value6 = reverse(cons(one, cons(one, cons(zero, nil)')')');
+
+value15 = Sum(value10, value5);
+value16 = Sum(value10, value6);
+
+id(val x) = x {
+  ololo = zero;
+}
+
+almost_one = id(one)';
+definitely_one = almost_one!;
+definitely_zero = almost_one.ololo;
+
+Cons(val x, val y) = cons(x, y)';
+Cons1 = lambda(val x, val y) -> Cons(x, y);
+
+impure {
+  #define PRINT(x) std::cout << #x \
+    << " = " << int(impure world(x)) \
+    << " = " << std::string(impure world(reverse(x))) << std::endl;
+  int main() {
+    PRINT(value5);
+    PRINT(value6);
+    PRINT(value10);
+    PRINT(value15);
+    PRINT(value16);
+  }
+}

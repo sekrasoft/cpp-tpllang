@@ -1,0 +1,117 @@
+namespace test {
+  x;
+  y;
+  
+  using namespace std;
+  using namespace std.fx;
+  namespace x = x.y.z;
+  using x.y.z;
+
+  zzzz;
+  
+  impure {
+    int x = 3;
+    char x = 3;
+  }
+
+  f(val x);
+
+  f(val x) = x;
+  g(val x) = x {
+    a = x;
+    b = y;
+    gg(x) = n(x);
+  }
+
+  z = f(x);
+  z1 = g(x)';
+  z2 = g(x)'.a;
+  z3 = z1.b;
+
+  ff();
+  ff() = f(x);
+  m1 = ff;
+  m2 = ff()';
+  m3 = ff();
+  gg() = ff();
+
+  apply(val -> val f, val x) = f(x);
+
+  #type unary = val -> val;
+  apply2(unary f, val x) = f(x);
+
+  #type binary = (val, val) -> val;
+
+  #type apply_t = (unary, val) -> val;
+  #type apply2_t = ((val, val) -> val, val) -> val;
+
+  apply3((val, val) -> val f, val x, val y) = f(x, y);
+  
+  metaapply(apply_t applyf, unary f, val x) = applyf(f, x);
+
+  partial(val x, val y) = vvv(x, y);
+  partial(x, val y) = hhh(x, y);
+  partial(x, y) = zzzz(x, y);
+
+  #type f = (val1, val2, val3);
+  
+  aaaaaaaaaa = lambda(val y) -> y {s=s;}
+  
+  f(val x) = x;
+  g(val x) = x;
+  h(val x) = x;
+
+  i(val x) {
+    ii(val x) = x {
+      y = x;
+    }
+    jj(val x) = x {
+      y = x;
+    }
+    y = x;
+  }
+
+//  curry((val, val)->val f) = lambda(val x) {} -> lambda(val y) {} -> f(x, y) {}
+//  c = lambda((val, val)->val f) -> lambda(val x) {} -> lambda(val y) {} -> f(x, y) {}
+//  c2 = lambda((val, val)->val f) -> lambda(val x) -> lambda(val y) -> f(x, y);
+
+}
+
+using namespace list;
+using namespace binary;
+using namespace number;
+
+print(val list) {
+  head = list.head;
+  tail = list.tail;
+  impure {
+    print() {
+      impure print(head);
+      impure print(tail);
+    }
+  }
+}
+
+print(zero) {
+  impure {
+    print() {
+      std::cout << "0";
+    }
+  }
+}
+
+print(one) {
+  impure {
+    print() {
+      std::cout << "1";
+    }
+  }
+}
+
+print(nil) {
+  impure {
+    print() {
+      std::cout << std::endl;
+    }
+  }
+}

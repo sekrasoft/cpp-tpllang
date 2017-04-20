@@ -1,0 +1,209 @@
+{
+  var lang = this.lang;
+}
+
+namespaced_statements = sp sts:((namespaced_statement term* sp)*)
+{ return new lang.Statements(sts.map(function(x){ return x[0]; })); }
+
+namespaced_statement = statement
+/ using
+/ 'namespace' sp name:name sp '{' sts:namespaced_statements '}'
+{ return new lang.Namespace(String(name), sts.children); }
+
+statements = sp sts:((statement term* sp)*)
+{ return new lang.Statements(sts.map(function(x){ return x[0]; })); }
+
+statement = type_def / impure / func_def / func_decl / var_def
+
+assignment_right = sp '=' sp impure:impure
+{
+  return {
+    nolambdas: true,
+    value: null,
+    children: [impure]
+  };
+}
+/ l_expr:((sp '=' sp lambdas expr)?) children:(braced_statements / term)
+{
+  if(!l_expr) return {
+    nolambdas: true,
+    value: null,
+    children: children
+  };
+  
+  var lambdas = l_expr[3];
+  var cur = {
+    nolambdas: true,
+    value: l_expr[4],
+    children: children
+  };
+  
+  for(var i=lambdas.length-1; i>=0; --i) {
+    var lambda = lambdas[i];
+    cur = {
+    nolambdas: false,
+      value: new lang.Lambda(lambda.args, cur.value, cur.children),
+      children: lambda.children
+    };
+  }
+  
+  return cur;
+}
+
+lambdas = lambdas:(('lambda' sp '(' sp func_decl_args sp ')' braced_statements? sp '->' sp)*)
+{
+  if(!lambdas) return [];
+  return lambdas.map(function(lambda) {
+    return {
+      args: lambda[4],
+      children: lambda[7]
+    };
+  });
+}
+
+func_def = name:name sp '(' sp args:func_def_args sp ')' right:(assignment_right?)
+{ return new lang.Func(String(name), args, right && right.value, right && right.children); }
+
+func_decl = name:name sp '(' sp args:func_decl_args sp ')' term
+{ return new lang.Func(String(name), args, null, null); }
+
+var_def = name:name right:assignment_right
+{
+  if(right.nolambdas) {
+    if(right.value && !right.children) {
+        return new lang.Assignment(String(name), right.value);
+    } else {
+      return new lang.Value(String(name), right.children);
+    }
+  } else {
+    var lambda = right.value;
+    lambda.setName(String(name));
+    if(right.children && right.children.length) {
+      throw new Error('Lambda context is forbidden while assignining variable.');
+    }
+    return lambda;
+  }
+}
+
+impure = 'impure' sp '{' children:(impure_braced*) '}'
+{ return new lang.ImpureDefinition([].concat.apply([], children)); }
+
+impure_braced = '{' children:impure_braced* '}'
+{
+  var flat = [].concat.apply([], children);
+  return [new lang.Code('{', 'inline')]
+    .concat(flat, [new lang.Code('}', 'inline')]);
+}
+/ text:((!'impure' !'{' !'}' .)+)
+{
+  return [new lang.Code(text
+    .map(function(arg) { return arg[3]; })
+    .join(''), 'inline')];
+}
+/ impure_call:impure_call
+{ return [impure_call]; }
+
+impure_call = 'impure' sp name:name sp args:call_args
+{
+  if(args.escape) throw new Error('Impure call escaping is forbidden.');
+  return new lang.ImpureCall(String(name), args.args);
+}
+
+type_def = '#' sp 'type' sp name:name sp '=' sp value:type_expr term
+{ return new lang.Typedef(String(name), value); }
+
+using = 'using' is_ns:((sp 'namespace')?) sp ns:(name (sp '.' name)*) term
+{
+  var nsPath = [ns[0]].concat(ns[1].map(function(ns) { return ns[2]; }));
+  if(!is_ns && nsPath.length < 2) throw new Error('Invalid: using ' + ns[0]);
+  return new lang.Code('using ' + (is_ns ? 'namespace ' : '') + nsPath.join('::') + ';');
+}
+/ 'namespace' sp name:name sp '=' sp ns:(name (sp '.' name)*) term
+{
+  var nsPath = [ns[0]].concat(ns[1].map(function(ns) { return ns[2]; }));
+  return new lang.Code('namespace ' + name + ' = ' + nsPath.join('::') + ';');
+}
+
+braced_statements = sp '{' children:statements '}'
+{ return children.children; }
+
+type_expr = type_func
+
+type_func = type1:type_tuple type2:(type_func_tail?)
+{
+  if(type2) return new lang.TypeFunc(type1, type2);
+  return type1;
+}
+
+type_func_tail = sp '->' sp type2:type_name
+{ return type2; }
+
+type_tuple = '(' types:(type_expr (sp ',' sp type_expr)*) ')'
+{ return new lang.TypeTuple([types[0]].concat(types[1].map(function(arg) { return arg[3]; }))); }
+/ type_name
+
+type_name = name:name { return new lang.Type(String(name)); }
+
+func_def_args = args:(((typed / expr) (sp ',' sp (typed / expr))*)?)
+{
+  if (args == null) return null;
+  return [args[0]].concat(args[1].map(function(arg) { return arg[3]; }));
+}
+
+func_decl_args = args:((typed (sp ',' sp typed)*)?)
+{
+  if (args == null) return null;
+  return [args[0]].concat(args[1].map(function(arg) { return arg[3]; }));
+}
+
+
+typed = type:type_expr sp name:name
+{ return new lang.TypedArgument(String(name), type); }
+
+expr = call_or_field / simple_expr
+simple_expr = name
+
+call_or_field = expr:simple_expr modifiers:((sp (call_args / dot_name / '!'))+)
+{
+  var cur = expr;
+  for(var i=0; i < modifiers.length; ++i) {
+    var modifier = modifiers[i][1], bang = modifiers[i][2];
+    if(modifier == '!') modifier = {type: 'bang'};
+    switch(modifier.type) {
+    case 'args':
+      cur = new lang.FuncCall(cur, modifier.args, modifier.escape);
+      break;
+    case 'dot':
+      cur = new lang.Field(cur, modifier.name);
+      break;
+    case 'bang':
+      cur = new lang.Dereference(cur);
+      break;
+    default:
+      throw new Error('unknown modifier: ' + modifier.type);
+    }
+  }
+
+  return cur;
+}
+
+call_args = '(' args:((sp expr (sp ',' sp expr)*)?) sp ')' escape:('\''?)
+{
+  return {
+    type: 'args',
+    escape: Boolean(escape),
+    args: args && [args[1]]
+      .concat(args[2]
+        .map(function(arg) { return arg[3]; }))
+  };
+}
+
+dot_name = '.' sp name:name
+{ return {type: 'dot', name: String(name)}; }
+
+name = name:([A-Za-z] [A-Za-z0-9_]*)
+{ return new lang.Identifier(name[0] + name[1].join('')); }
+
+sp = ([ \r\t\n] / '//' (! '\n' .)* / '/*' (! '*/' .)* '*/')* { return null; }
+
+term = sp ';' { return null; }
